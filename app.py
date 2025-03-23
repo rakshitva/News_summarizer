@@ -47,3 +47,4 @@ demo = gr.Interface(
 )
 
 demo.launch()
+
