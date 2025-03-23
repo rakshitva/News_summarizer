@@ -16,6 +16,8 @@ nltk.download("vader_lexicon")
 
 # Load API Keys from environment variables
 
+FINNHUB_API_KEY="cveqnmpr01qjugsebi70cveqnmpr01qjugsebi7g"
+NEWS_API_KEY="cefd6269dbc2487092574484e047b2d2"
 
 
 # Initialize NLP tools
