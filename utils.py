@@ -7,6 +7,9 @@ from nltk.sentiment import SentimentIntensityAnalyzer
 from transformers import pipeline
 from gtts import gTTS
 import torch
+from deep_translator import GoogleTranslator  # Use deep_translator instead
+
+
 
 # Download NLTK resources
 nltk.download("vader_lexicon")
