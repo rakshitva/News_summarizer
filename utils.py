@@ -6,23 +6,21 @@ from bs4 import BeautifulSoup
 from nltk.sentiment import SentimentIntensityAnalyzer
 from transformers import pipeline
 from gtts import gTTS
-import torch
-from deep_translator import GoogleTranslator  # Use deep_translator instead
-
-
+from deep_translator import GoogleTranslator
+import uuid
 
 # Download NLTK resources
 nltk.download("vader_lexicon")
 
-# Load API Keys from environment variables
-
-FINNHUB_API_KEY="cveqnmpr01qjugsebi70cveqnmpr01qjugsebi7g"
-NEWS_API_KEY="cefd6269dbc2487092574484e047b2d2"
-
-
 # Initialize NLP tools
 summarizer = pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
 sentiment_analyzer = SentimentIntensityAnalyzer()
+
+# API keys (load from environment variables for security)
+FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY", "your_fallback_key")
+NEWS_API_KEY = os.getenv("NEWS_API_KEY", "your_fallback_key")
+
+news_database = []  # Global database for storing articles (for querying system)
 
 def get_ticker(company_name):
     """Fetch stock ticker using Finnhub API or fallback to Yahoo Finance."""
@@ -38,7 +36,8 @@ def get_ticker(company_name):
     try:
         stock = yf.Ticker(company_name)
         return stock.ticker if stock.ticker else None
-    except:
+    except Exception as e:
+        print(f"⚠️ Error in ticker lookup: {e}")
         return None
 
 def get_news(company):
@@ -48,84 +47,70 @@ def get_news(company):
         "q": company,
         "apiKey": NEWS_API_KEY,
         "language": "en",
-        "pageSize": 10  # Fetch 10 articles as per requirements
+        "pageSize": 10
     }
     response = requests.get(url, params=params).json()
     
     if "articles" not in response or not response["articles"]:
-        return None
+        print("⚠️ No articles found.")
+        return []
     
     articles = []
     for article in response["articles"]:
-        title = article.get("title", "No Title")
-        content = article.get("description", "No Content")
-        source = article.get("source", {}).get("name", "Unknown")
-        url = article.get("url", "")
-        date = article.get("publishedAt", "Unknown Date")
-        
         articles.append({
-            "title": title,
-            "content": content,
-            "source": source,
-            "url": url,
-            "date": date
+            "title": article.get("title", "No Title"),
+            "content": article.get("description", "No Content"),
+            "source": article.get("source", {}).get("name", "Unknown"),
+            "url": article.get("url", ""),
+            "date": article.get("publishedAt", "Unknown Date")
         })
     
     return articles
 
 def summarize_text(text):
-    """Summarize long news content using Hugging Face transformers."""
+    """Summarize news content using Hugging Face transformers."""
     if not text or len(text.split()) < 50:
         return text or "No summary available."
-    summary = summarizer(text, max_length=100, min_length=30, do_sample=False)
-    return summary[0]["summary_text"]
+    try:
+        summary = summarizer(text, max_length=100, min_length=30, do_sample=False)
+        return summary[0]["summary_text"]
+    except Exception as e:
+        print(f"⚠️ Error in summarization: {e}")
+        return "Failed to generate summary."
 
 def analyze_sentiment(text):
     """Perform sentiment analysis using NLTK."""
     if not text:
-        return "Neutral"
+        return "Neutral", 0.0
     sentiment_score = sentiment_analyzer.polarity_scores(text)
     if sentiment_score["compound"] >= 0.05:
-        return "Positive"
+        return "Positive", sentiment_score["compound"]
     elif sentiment_score["compound"] <= -0.05:
-        return "Negative"
+        return "Negative", sentiment_score["compound"]
     else:
-        return "Neutral"
-import tempfile
-from gtts import gTTS
-from deep_translator import GoogleTranslator
+        return "Neutral", sentiment_score["compound"]
 
-import tempfile
-from gtts import gTTS
-from deep_translator import GoogleTranslator
-
-def text_to_speech(text):
-    """Convert summarized text to Hindi speech and return a temporary audio file path."""
+def text_to_speech(text, filename=None):
+    """Convert summarized text to Hindi speech and save as an MP3 file."""
     if not text:
         return None
-
     try:
-        # Translate English text to Hindi
+        # Translate text to Hindi
         translated_text = GoogleTranslator(source="en", target="hi").translate(text)
-
+        
+        # Generate unique filename if not provided
+        if filename is None:
+            unique_id = str(uuid.uuid4())
+            filename = f"static/news_summary_{unique_id}.mp3"
+        
         # Convert Hindi text to speech
-        tts = gTTS(translated_text, lang="hi")
-
-        # Create a temporary file
-        temp_audio = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-        temp_audio_path = temp_audio.name
-        temp_audio.close()
-
-        # Save the generated speech to the temp file
-        tts.save(temp_audio_path)
-
-        return temp_audio_path  # Return the temporary file path
+        tts = gTTS(text=translated_text, lang="hi")
+        tts.save(filename)
+        
+        return filename
     except Exception as e:
         print(f"⚠️ Error in TTS: {e}")
         return None
-
-
-
 
 if __name__ == "__main__":
     company = input("Enter company name: ").strip().title()
@@ -151,12 +136,13 @@ if __name__ == "__main__":
         print(f"📅 Date: {article['date']}")
         
         summary = summarize_text(article["content"])
-        sentiment = analyze_sentiment(article["content"])
+        sentiment, score = analyze_sentiment(article["content"])
         print(f"📝 Summary: {summary}")
-        print(f"📊 Sentiment: {sentiment}")
+        print(f"📊 Sentiment: {sentiment} (Score: {score:.2f})")
         
         # Generate Hindi TTS
         audio_file = text_to_speech(summary, filename=f"static/news_{i}.mp3")
         print(f"🎙️ Hindi Speech Saved: {audio_file}")
     
     print("\n✅ News processing completed!")
+
