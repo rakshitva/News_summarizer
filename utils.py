@@ -15,8 +15,8 @@ from deep_translator import GoogleTranslator  # Use deep_translator instead
 nltk.download("vader_lexicon")
 
 # Load API Keys from environment variables
-FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
-NEWS_API_KEY = os.getenv("NEWS_API_KEY")
+
+
 
 # Initialize NLP tools
 summarizer = pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
