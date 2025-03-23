@@ -91,17 +91,16 @@ def analyze_sentiment(text):
         return "Negative"
     else:
         return "Neutral"
-
+import tempfile
 from gtts import gTTS
+from deep_translator import GoogleTranslator
 
+import tempfile
 from gtts import gTTS
-from googletrans import Translator  # Import Google Translate API
+from deep_translator import GoogleTranslator
 
-translator = Translator()  # Initialize the translator
-from deep_translator import GoogleTranslator  # Replace googletrans
-
-def text_to_speech(text, filename="static/news_summary.mp3"):
-    """Convert summarized text to Hindi speech and save as an MP3 file."""
+def text_to_speech(text):
+    """Convert summarized text to Hindi speech and return a temporary audio file path."""
     if not text:
         return None
 
@@ -111,12 +110,21 @@ def text_to_speech(text, filename="static/news_summary.mp3"):
 
         # Convert Hindi text to speech
         tts = gTTS(translated_text, lang="hi")
-        tts.save(filename)
 
-        return filename  # Return the file path
+        # Create a temporary file
+        temp_audio = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+        temp_audio_path = temp_audio.name
+        temp_audio.close()
+
+        # Save the generated speech to the temp file
+        tts.save(temp_audio_path)
+
+        return temp_audio_path  # Return the temporary file path
     except Exception as e:
         print(f"⚠️ Error in TTS: {e}")
         return None
+
+
 
 
 if __name__ == "__main__":
